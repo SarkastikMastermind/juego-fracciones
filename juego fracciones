@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathFrac - Aprende Operaciones con Fracciones</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        
+        #game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        #game-area {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 8px;
+        }
+        
+        .fraction {
+            display: inline-block;
+            text-align: center;
+            vertical-align: middle;
+            margin: 0 5px;
+        }
+        
+        .numerator {
+            border-bottom: 1px solid #333;
+            padding: 0 5px;
+        }
+        
+        .denominator {
+            padding: 0 5px;
+        }
+        
+        #operation {
+            font-size: 24px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        #answer-input {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+        
+        input {
+            padding: 8px;
+            font-size: 16px;
+            margin: 0 5px;
+            width: 50px;
+            text-align: center;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        #controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        #stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #d5e8f7;
+            border-radius: 5px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        #feedback {
+            text-align: center;
+            min-height: 30px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        
+        .correct {
+            color: #27ae60;
+        }
+        
+        .incorrect {
+            color: #e74c3c;
+        }
+        
+        #level-select {
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        select {
+            padding: 8px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>MathFrac - Operaciones con Fracciones</h1>
+        
+        <div id="level-select">
+            <label for="difficulty">Nivel de dificultad:</label>
+            <select id="difficulty">
+                <option value="easy">Fácil (Sumas/Restas)</option>
+                <option value="medium">Medio (Multiplicaciones/Divisiones)</option>
+                <option value="hard">Difícil (Operaciones combinadas)</option>
+                <option value="expert">Experto (Con paréntesis)</option>
+            </select>
+            <button id="start-btn">Comenzar Juego</button>
+        </div>
+        
+        <div id="game-area" style="display: none;">
+            <div id="operation"></div>
+            
+            <div id="answer-input">
+                <div class="fraction">
+                    <div class="numerator"><input type="number" id="num1"></div>
+                    <div class="denominator"><input type="number" id="den1"></div>
+                </div>
+            </div>
+            
+            <div id="feedback"></div>
+            
+            <div id="controls">
+                <button id="check-btn">Comprobar</button>
+                <button id="hint-btn">Pista</button>
+                <button id="skip-btn">Saltar</button>
+            </div>
+            
+            <div id="stats">
+                <div class="stat">Puntos: <span id="score">0</span></div>
+                <div class="stat">Aciertos: <span id="correct">0</span>/<span id="attempted">0</span></div>
+                <div class="stat">Vidas: <span id="lives">3</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables del juego
+        let score = 0;
+        let correctAnswers = 0;
+        let totalAttempted = 0;
+        let lives = 3;
+        let currentOperation = {};
+        let difficulty = 'easy';
+        
+        // Elementos del DOM
+        const gameArea = document.getElementById('game-area');
+        const operationElement = document.getElementById('operation');
+        const num1Input = document.getElementById('num1');
+        const den1Input = document.getElementById('den1');
+        const feedbackElement = document.getElementById('feedback');
+        const scoreElement = document.getElementById('score');
+        const correctElement = document.getElementById('correct');
+        const attemptedElement = document.getElementById('attempted');
+        const livesElement = document.getElementById('lives');
+        const startBtn = document.getElementById('start-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const hintBtn = document.getElementById('hint-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const difficultySelect = document.getElementById('difficulty');
+        
+        // Event listeners
+        startBtn.addEventListener('click', startGame);
+        checkBtn.addEventListener('click', checkAnswer);
+        hintBtn.addEventListener('click', showHint);
+        skipBtn.addEventListener('click', generateNewOperation);
+        
+        // Funciones del juego
+        
+        function startGame() {
+            difficulty = difficultySelect.value;
+            gameArea.style.display = 'block';
+            score = 0;
+            correctAnswers = 0;
+            totalAttempted = 0;
+            lives = 3;
+            updateStats();
+            generateNewOperation();
+        }
+        
+        function generateNewOperation() {
+            // Limpiar inputs y feedback
+            num1Input.value = '';
+            den1Input.value = '';
+            feedbackElement.textContent = '';
+            feedbackElement.className = '';
+            
+            // Generar operación según la dificultad
+            currentOperation = generateFractionOperation(difficulty);
+            displayOperation(currentOperation);
+        }
+        
+        function generateFractionOperation(level) {
+            const operations = {
+                easy: ['+', '-'],
+                medium: ['*', '/'],
+                hard: ['+', '-', '*', '/'],
+                expert: ['+', '-', '*', '/'] // Con paréntesis
+            };
+            
+            let op1, op2, operator1, operator2, useParentheses;
+            
+            // Generar fracciones aleatorias
+            op1 = generateRandomFraction();
+            op2 = generateRandomFraction();
+            op3 = generateRandomFraction();
+            
+            // Seleccionar operadores según nivel
+            if (level === 'easy') {
+                operator1 = operations.easy[Math.floor(Math.random() * operations.easy.length)];
+                return { op1, op2, operator1, op3: null, operator2: null, parentheses: false };
+            } 
+            else if (level === 'medium') {
+                operator1 = operations.medium[Math.floor(Math.random() * operations.medium.length)];
+                return { op1, op2, operator1, op3: null, operator2: null, parentheses: false };
+            }
+            else if (level === 'hard') {
+                operator1 = operations.hard[Math.floor(Math.random() * operations.hard.length)];
+                operator2 = operations.hard[Math.floor(Math.random() * operations.hard.length)];
+                return { op1, op2, operator1, op3, operator2, parentheses: false };
+            }
+            else { // expert
+                operator1 = operations.expert[Math.floor(Math.random() * operations.expert.length)];
+                operator2 = operations.expert[Math.floor(Math.random() * operations.expert.length)];
+                useParentheses = Math.random() > 0.5;
+                return { op1, op2, operator1, op3, operator2, parentheses: useParentheses };
+            }
+        }
+        
+        function generateRandomFraction() {
+            const denominator = Math.floor(Math.random() * 9) + 2; // 2-10
+            const numerator = Math.floor(Math.random() * denominator) + 1; // 1-denominator
+            return { numerator, denominator };
+        }
+        
+        function displayOperation(operation) {
+            let operationString = '';
+            
+            // Construir la cadena de la operación
+            operationString += createFractionString(operation.op1);
+            
+            if (operation.op3 && operation.operator2) {
+                if (operation.parentheses) {
+                    operationString += ` ${operation.operator1} (`;
+                    operationString += createFractionString(operation.op2);
+                    operationString += ` ${operation.operator2} `;
+                    operationString += createFractionString(operation.op3);
+                    operationString += ')';
+                } else {
+                    operationString += ` ${operation.operator1} `;
+                    operationString += createFractionString(operation.op2);
+                    operationString += ` ${operation.operator2} `;
+                    operationString += createFractionString(operation.op3);
+                }
+            } else {
+                operationString += ` ${operation.operator1} `;
+                operationString += createFractionString(operation.op2);
+            }
+            
+            operationString += ' = ?';
+            operationElement.innerHTML = operationString;
+            
+            // Calcular la respuesta correcta
+            currentOperation.correctAnswer = calculateOperation(operation);
+        }
+        
+        function createFractionString(fraction) {
+            return `<div class="fraction">
+                <div class="numerator">${fraction.numerator}</div>
+                <div class="denominator">${fraction.denominator}</div>
+            </div>`;
+        }
+        
+        function calculateOperation(operation) {
+            // Calcular el valor decimal de cada fracción
+            const val1 = operation.op1.numerator / operation.op1.denominator;
+            let val2, val3;
+            
+            if (operation.op3 && operation.operator2) {
+                val2 = operation.op2.numerator / operation.op2.denominator;
+                val3 = operation.op3.numerator / operation.op3.denominator;
+                
+                let partialResult;
+                if (operation.parentheses) {
+                    // Calcular primero la operación entre paréntesis
+                    partialResult = performOperation(val2, val3, operation.operator2);
+                } else {
+                    // Calcular de izquierda a derecha
+                    partialResult = performOperation(val1, val2, operation.operator1);
+                    return performOperation(partialResult, val3, operation.operator2);
+                }
+                
+                return performOperation(val1, partialResult, operation.operator1);
+            } else {
+                val2 = operation.op2.numerator / operation.op2.denominator;
+                return performOperation(val1, val2, operation.operator1);
+            }
+        }
+        
+        function performOperation(a, b, operator) {
+            switch(operator) {
+                case '+': return a + b;
+                case '-': return a - b;
+                case '*': return a * b;
+                case '/': return a / b;
+                default: return 0;
+            }
+        }
+        
+        function checkAnswer() {
+            const userNum = parseInt(num1Input.value);
+            const userDen = parseInt(den1Input.value);
+            
+            if (isNaN(userNum) {
+                feedbackElement.textContent = 'Por favor ingresa un numerador válido';
+                feedbackElement.className = 'incorrect';
+                return;
+            }
+            
+            if (isNaN(userDen) {
+                feedbackElement.textContent = 'Por favor ingresa un denominador válido';
+                feedbackElement.className = 'incorrect';
+                return;
+            }
+            
+            if (userDen === 0) {
+                feedbackElement.textContent = 'El denominador no puede ser cero';
+                feedbackElement.className = 'incorrect';
+                return;
+            }
+            
+            totalAttempted++;
+            
+            // Calcular la respuesta del usuario en decimal
+            const userAnswer = userNum / userDen;
+            
+            // Comparar con la respuesta correcta (con cierta tolerancia por decimales)
+            if (Math.abs(userAnswer - currentOperation.correctAnswer) < 0.0001) {
+                // Respuesta correcta
+                score += 10;
+                correctAnswers++;
+                feedbackElement.textContent = '¡Correcto!';
+                feedbackElement.className = 'correct';
+                setTimeout(generateNewOperation, 1500);
+            } else {
+                // Respuesta incorrecta
+                lives--;
+                feedbackElement.textContent = 'Incorrecto. Intenta de nuevo.';
+                feedbackElement.className = 'incorrect';
+                
+                if (lives <= 0) {
+                    setTimeout(() => {
+                        alert(`Juego terminado! Puntuación final: ${score}`);
+                        gameArea.style.display = 'none';
+                    }, 500);
+                }
+            }
+            
+            updateStats();
+        }
+        
+        function showHint() {
+            // Mostrar una pista sobre cómo resolver la operación
+            let hint = '';
+            const answer = currentOperation.correctAnswer;
+            
+            if (answer % 1 === 0) {
+                hint = `La respuesta es un número entero: ${answer}`;
+            } else {
+                // Simplificar la fracción aproximada
+                const approxFraction = simplifyFraction(Math.round(answer * 100), 100);
+                hint = `La respuesta está cerca de ${approxFraction.numerator}/${approxFraction.denominator}`;
+            }
+            
+            feedbackElement.textContent = hint;
+            feedbackElement.className = '';
+            
+            // Penalización por usar pista
+            score = Math.max(0, score - 3);
+            updateStats();
+        }
+        
+        function simplifyFraction(numerator, denominator) {
+            // Algoritmo para simplificar fracciones
+            const gcd = (a, b) => b ? gcd(b, a % b) : a;
+            const divisor = gcd(numerator, denominator);
+            return {
+                numerator: numerator / divisor,
+                denominator: denominator / divisor
+            };
+        }
+        
+        function updateStats() {
+            scoreElement.textContent = score;
+            correctElement.textContent = correctAnswers;
+            attemptedElement.textContent = totalAttempted;
+            livesElement.textContent = lives;
+        }
+    </script>
+</body>
+</html>
