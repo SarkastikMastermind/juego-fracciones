@@ -4,29 +4,77 @@
   <meta charset="UTF-8">
   <title>Galaga de Fracciones</title>
   <style>
-    body { margin: 0; background: #111; color: white; font-family: Arial; overflow: hidden; }
-    canvas { background: black; display: block; margin: auto; border: 2px solid #444; }
+    body {
+      margin: 0;
+      background: #000;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: url('https://i.ibb.co/fvfsD4X/space-bg.jpg') no-repeat center center;
+      background-size: cover;
+      border: 2px solid #333;
+    }
     #hud {
       position: absolute;
       top: 10px;
       left: 10px;
       color: white;
-      z-index: 1;
+      z-index: 2;
+    }
+    #instructions {
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translate(-50%, -20%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 20px;
+      border: 2px solid #fff;
+      border-radius: 10px;
+      z-index: 3;
+      width: 300px;
+      text-align: center;
+    }
+    #startBtn {
+      padding: 10px 20px;
+      background: lime;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
+<div id="instructions">
+  <h2>Galaga de Fracciones</h2>
+  <p>Dispara las fracciones en el <strong>orden correcto</strong> según la jerarquía de operaciones.</p>
+  <p>Usa ◀️ y ▶️ para moverte, y barra espaciadora para disparar.</p>
+  <button id="startBtn">¡Comenzar!</button>
+</div>
+
 <canvas id="gameCanvas" width="600" height="800"></canvas>
+
 <div id="hud">
   <h3 id="operation">Operación:</h3>
   <p id="score">Puntos: 0</p>
   <p id="lives">Vidas: 3</p>
 </div>
+
+<!-- Audios -->
+<audio id="shootSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_b9bc169b14.mp3?filename=laser-shoot-81267.mp3"></audio>
+<audio id="hitSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_a4f19b96f3.mp3?filename=hit-81257.mp3"></audio>
+<audio id="wrongSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_845ee7ef75.mp3?filename=error-126627.mp3"></audio>
+<audio id="gameOverSound" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_66790536ab.mp3?filename=game-over-arcade-6435.mp3"></audio>
+
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let player = { x: 280, y: 750, width: 40, height: 20 };
+let player = { x: 280, y: 750, width: 40, height: 40 };
 let bullets = [];
 let enemies = [];
 let score = 0;
@@ -36,7 +84,19 @@ let operationText = document.getElementById("operation");
 let correctOrder = [];
 let currentStep = 0;
 
-// Utilidades para fracciones
+const shootSound = document.getElementById("shootSound");
+const hitSound = document.getElementById("hitSound");
+const wrongSound = document.getElementById("wrongSound");
+const gameOverSound = document.getElementById("gameOverSound");
+
+const playerImg = new Image();
+playerImg.src = "https://i.ibb.co/Qf0H9ZT/spaceship.png"; // Nave espacial
+
+document.getElementById("startBtn").onclick = () => {
+  document.getElementById("instructions").style.display = "none";
+  startGame();
+};
+
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
 
 function simplify(n, d) {
@@ -54,7 +114,6 @@ function fractionToString([n, d]) {
   return d === 1 ? `${n}` : `${n}/${d}`;
 }
 
-// Genera operación como: (1/2 + 3/4) × 2/3
 function generateOperation() {
   let f1 = generateFraction();
   let f2 = generateFraction();
@@ -71,16 +130,17 @@ function createEnemies(order) {
   });
 }
 
-// Control jugador
 document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft") player.x -= 20;
   if (e.key === "ArrowRight") player.x += 20;
-  if (e.key === " ") bullets.push({ x: player.x + 15, y: player.y });
+  if (e.key === " ") {
+    bullets.push({ x: player.x + 15, y: player.y });
+    shootSound.play();
+  }
 });
 
 function drawPlayer() {
-  ctx.fillStyle = "lime";
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
 }
 
 function drawBullets() {
@@ -109,15 +169,18 @@ function drawEnemies() {
 function checkCollisions() {
   bullets.forEach((b, bi) => {
     enemies.forEach((e, ei) => {
-      if (b.x > e.x - 10 && b.x < e.x + 40 && b.y > e.y - 20 && b.y < e.y + 20) {
+      if (
+        b.x > e.x - 10 && b.x < e.x + 40 &&
+        b.y > e.y - 20 && b.y < e.y + 20
+      ) {
         if (e.text === correctOrder[currentStep]) {
           score += 10;
           currentStep++;
-          if (currentStep === correctOrder.length) {
-            nextLevel();
-          }
+          hitSound.play();
+          if (currentStep === correctOrder.length) nextLevel();
         } else {
           lives--;
+          wrongSound.play();
           if (lives <= 0) gameOver();
         }
         enemies.splice(ei, 1);
@@ -133,6 +196,7 @@ function updateHUD() {
 }
 
 function gameOver() {
+  gameOverSound.play();
   alert("¡Juego terminado! Puntaje final: " + score);
   location.reload();
 }
@@ -140,7 +204,7 @@ function gameOver() {
 function nextLevel() {
   level++;
   currentStep = 0;
-  generateOperation();
+  correctOrder = generateOperation();
   createEnemies(correctOrder);
 }
 
@@ -154,10 +218,11 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-// Inicializar juego
-correctOrder = generateOperation();
-createEnemies(correctOrder);
-gameLoop();
+function startGame() {
+  correctOrder = generateOperation();
+  createEnemies(correctOrder);
+  gameLoop();
+}
 </script>
 </body>
 </html>
