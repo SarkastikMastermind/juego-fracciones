@@ -1,228 +1,221 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Galaga de Fracciones</title>
-  <style>
-    body {
-      margin: 0;
-      background: #000;
-      font-family: sans-serif;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      margin: auto;
-      background: url('https://i.ibb.co/fvfsD4X/space-bg.jpg') no-repeat center center;
-      background-size: cover;
-      border: 2px solid #333;
-    }
-    #hud {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      z-index: 2;
-    }
-    #instructions {
-      position: absolute;
-      top: 20%;
-      left: 50%;
-      transform: translate(-50%, -20%);
-      background: rgba(0,0,0,0.8);
-      color: white;
-      padding: 20px;
-      border: 2px solid #fff;
-      border-radius: 10px;
-      z-index: 3;
-      width: 300px;
-      text-align: center;
-    }
-    #startBtn {
-      padding: 10px 20px;
-      background: lime;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathFrac: Operaciones con Fracciones</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+        .game-container {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px #000;
+        }
+        .problem {
+            font-size: 1.8em;
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.2em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+        }
+        button:hover {
+            transform: scale(1.05);
+            background: #45a049;
+        }
+        .score {
+            font-size: 1.3em;
+            margin: 15px 0;
+        }
+        .feedback {
+            font-size: 1.5em;
+            height: 30px;
+            margin: 10px 0;
+        }
+        .correct {
+            color: #4CAF50;
+        }
+        .incorrect {
+            color: #f44336;
+        }
+    </style>
 </head>
 <body>
-<div id="instructions">
-  <h2>Galaga de Fracciones</h2>
-  <p>Dispara las fracciones en el <strong>orden correcto</strong> según la jerarquía de operaciones.</p>
-  <p>Usa ◀️ y ▶️ para moverte, y barra espaciadora para disparar.</p>
-  <button id="startBtn">¡Comenzar!</button>
-</div>
+    <div class="game-container">
+        <h1>MathFrac 🧮</h1>
+        <div class="score">Puntos: <span id="points">0</span> | Vidas: <span id="lives">3</span></div>
+        <div class="problem" id="problem">3/4 + 1/2 = ?</div>
+        <div class="feedback" id="feedback"></div>
+        <div class="options" id="options">
+            <!-- Opciones generadas por JavaScript -->
+        </div>
+        <button id="next-btn" style="display: none;">Siguiente Problema</button>
+    </div>
 
-<canvas id="gameCanvas" width="600" height="800"></canvas>
+    <script>
+        // Variables del juego
+        let points = 0;
+        let lives = 3;
+        let correctAnswer;
 
-<div id="hud">
-  <h3 id="operation">Operación:</h3>
-  <p id="score">Puntos: 0</p>
-  <p id="lives">Vidas: 3</p>
-</div>
+        // Elementos del DOM
+        const problemElement = document.getElementById('problem');
+        const optionsElement = document.getElementById('options');
+        const feedbackElement = document.getElementById('feedback');
+        const pointsElement = document.getElementById('points');
+        const livesElement = document.getElementById('lives');
+        const nextButton = document.getElementById('next-btn');
 
-<!-- Audios -->
-<audio id="shootSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_b9bc169b14.mp3?filename=laser-shoot-81267.mp3"></audio>
-<audio id="hitSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_a4f19b96f3.mp3?filename=hit-81257.mp3"></audio>
-<audio id="wrongSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_845ee7ef75.mp3?filename=error-126627.mp3"></audio>
-<audio id="gameOverSound" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_66790536ab.mp3?filename=game-over-arcade-6435.mp3"></audio>
+        // Operadores posibles
+        const operators = ['+', '-', '*', '/'];
 
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-let player = { x: 280, y: 750, width: 40, height: 40 };
-let bullets = [];
-let enemies = [];
-let score = 0;
-let lives = 3;
-let level = 1;
-let operationText = document.getElementById("operation");
-let correctOrder = [];
-let currentStep = 0;
-
-const shootSound = document.getElementById("shootSound");
-const hitSound = document.getElementById("hitSound");
-const wrongSound = document.getElementById("wrongSound");
-const gameOverSound = document.getElementById("gameOverSound");
-
-const playerImg = new Image();
-playerImg.src = "https://i.ibb.co/Qf0H9ZT/spaceship.png"; // Nave espacial
-
-document.getElementById("startBtn").onclick = () => {
-  document.getElementById("instructions").style.display = "none";
-  startGame();
-};
-
-function gcd(a, b) { return b ? gcd(b, a % b) : a; }
-
-function simplify(n, d) {
-  let g = gcd(n, d);
-  return [n / g, d / g];
-}
-
-function generateFraction() {
-  let num = Math.floor(Math.random() * 4) + 1;
-  let den = Math.floor(Math.random() * 5) + 2;
-  return simplify(num, den);
-}
-
-function fractionToString([n, d]) {
-  return d === 1 ? `${n}` : `${n}/${d}`;
-}
-
-function generateOperation() {
-  let f1 = generateFraction();
-  let f2 = generateFraction();
-  let f3 = generateFraction();
-
-  correctOrder = [fractionToString(f1), fractionToString(f2), fractionToString(f3)];
-  operationText.innerHTML = `Operación: (${fractionToString(f1)} + ${fractionToString(f2)}) × ${fractionToString(f3)}`;
-  return correctOrder;
-}
-
-function createEnemies(order) {
-  enemies = order.map((text, i) => {
-    return { text, x: 100 + i * 150, y: -100 * (i + 1), correctIndex: i };
-  });
-}
-
-document.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft") player.x -= 20;
-  if (e.key === "ArrowRight") player.x += 20;
-  if (e.key === " ") {
-    bullets.push({ x: player.x + 15, y: player.y });
-    shootSound.play();
-  }
-});
-
-function drawPlayer() {
-  ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
-}
-
-function drawBullets() {
-  ctx.fillStyle = "red";
-  bullets.forEach(b => {
-    ctx.fillRect(b.x, b.y, 5, 10);
-    b.y -= 7;
-  });
-}
-
-function drawEnemies() {
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  enemies.forEach(e => {
-    ctx.fillText(e.text, e.x, e.y);
-    e.y += 2 + level * 0.5;
-    if (e.y > canvas.height) {
-      lives--;
-      updateHUD();
-      e.y = -200;
-      if (lives <= 0) gameOver();
-    }
-  });
-}
-
-function checkCollisions() {
-  bullets.forEach((b, bi) => {
-    enemies.forEach((e, ei) => {
-      if (
-        b.x > e.x - 10 && b.x < e.x + 40 &&
-        b.y > e.y - 20 && b.y < e.y + 20
-      ) {
-        if (e.text === correctOrder[currentStep]) {
-          score += 10;
-          currentStep++;
-          hitSound.play();
-          if (currentStep === correctOrder.length) nextLevel();
-        } else {
-          lives--;
-          wrongSound.play();
-          if (lives <= 0) gameOver();
+        // Generar un número aleatorio entre min y max
+        function randomNumber(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
         }
-        enemies.splice(ei, 1);
-        bullets.splice(bi, 1);
-      }
-    });
-  });
-}
 
-function updateHUD() {
-  document.getElementById("score").innerText = "Puntos: " + score;
-  document.getElementById("lives").innerText = "Vidas: " + lives;
-}
+        // Simplificar una fracción
+        function simplifyFraction(numerator, denominator) {
+            const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+            const divisor = gcd(numerator, denominator);
+            return [numerator / divisor, denominator / divisor];
+        }
 
-function gameOver() {
-  gameOverSound.play();
-  alert("¡Juego terminado! Puntaje final: " + score);
-  location.reload();
-}
+        // Generar un problema aleatorio
+        function generateProblem() {
+            const a = randomNumber(1, 5);
+            const b = randomNumber(1, 5);
+            const c = randomNumber(1, 5);
+            const d = randomNumber(1, 5);
+            const operator = operators[randomNumber(0, 3)];
 
-function nextLevel() {
-  level++;
-  currentStep = 0;
-  correctOrder = generateOperation();
-  createEnemies(correctOrder);
-}
+            let problemText = `${a}/${b} ${operator} ${c}/${d} = ?`;
+            problemElement.textContent = problemText;
 
-function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawPlayer();
-  drawBullets();
-  drawEnemies();
-  checkCollisions();
-  updateHUD();
-  requestAnimationFrame(gameLoop);
-}
+            // Calcular la respuesta correcta
+            let answerNumerator, answerDenominator;
+            switch (operator) {
+                case '+':
+                    answerNumerator = a * d + c * b;
+                    answerDenominator = b * d;
+                    break;
+                case '-':
+                    answerNumerator = a * d - c * b;
+                    answerDenominator = b * d;
+                    break;
+                case '*':
+                    answerNumerator = a * c;
+                    answerDenominator = b * d;
+                    break;
+                case '/':
+                    answerNumerator = a * d;
+                    answerDenominator = b * c;
+                    break;
+            }
 
-function startGame() {
-  correctOrder = generateOperation();
-  createEnemies(correctOrder);
-  gameLoop();
-}
-</script>
+            // Simplificar la respuesta
+            const simplified = simplifyFraction(answerNumerator, answerDenominator);
+            correctAnswer = `${simplified[0]}/${simplified[1]}`;
+
+            // Generar opciones de respuesta (1 correcta y 3 incorrectas)
+            const options = [correctAnswer];
+            while (options.length < 4) {
+                const fakeNum = randomNumber(1, 10);
+                const fakeDen = randomNumber(1, 10);
+                const fakeAnswer = `${fakeNum}/${fakeDen}`;
+                if (!options.includes(fakeAnswer)) options.push(fakeAnswer);
+            }
+
+            // Mezclar opciones
+            options.sort(() => Math.random() - 0.5);
+
+            // Mostrar opciones en el HTML
+            optionsElement.innerHTML = '';
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.addEventListener('click', () => checkAnswer(option));
+                optionsElement.appendChild(button);
+            });
+        }
+
+        // Verificar la respuesta seleccionada
+        function checkAnswer(selected) {
+            if (selected === correctAnswer) {
+                points += 10;
+                feedbackElement.textContent = '¡Correcto! +10 puntos';
+                feedbackElement.className = 'feedback correct';
+            } else {
+                lives--;
+                feedbackElement.textContent = `Incorrecto. La respuesta era ${correctAnswer}`;
+                feedbackElement.className = 'feedback incorrect';
+                if (lives <= 0) {
+                    setTimeout(() => {
+                        alert(`¡Game Over! Puntuación final: ${points}`);
+                        resetGame();
+                    }, 500);
+                }
+            }
+
+            pointsElement.textContent = points;
+            livesElement.textContent = lives;
+            nextButton.style.display = 'block';
+        }
+
+        // Reiniciar el juego
+        function resetGame() {
+            points = 0;
+            lives = 3;
+            pointsElement.textContent = points;
+            livesElement.textContent = lives;
+            feedbackElement.textContent = '';
+            nextButton.style.display = 'none';
+            generateProblem();
+        }
+
+        // Evento para el botón "Siguiente"
+        nextButton.addEventListener('click', () => {
+            nextButton.style.display = 'none';
+            feedbackElement.textContent = '';
+            generateProblem();
+        });
+
+        // Iniciar el juego
+        generateProblem();
+    </script>
 </body>
 </html>
